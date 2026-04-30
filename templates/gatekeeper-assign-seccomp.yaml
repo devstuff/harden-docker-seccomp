@@ -1,0 +1,50 @@
+---
+# Gatekeeper Assign mutation — Block AF_ALG socket creation (CVE-2026-31431)
+#
+# Injects a Localhost seccomp profile into the pod-level securityContext of
+# all incoming pods where seccompProfile is not already set.
+#
+# Prerequisites:
+#   - OPA Gatekeeper >= 3.10 installed with mutation enabled:
+#       helm install gatekeeper oci://ghcr.io/open-policy-agent/gatekeeper/helm/gatekeeper \
+#         --set experimentalEnableMutation=true   # pre-3.14
+#       # Mutation is stable (no flag needed) from Gatekeeper 3.14+
+#   - The profile JSON distributed to every node at:
+#       /var/lib/kubelet/seccomp/block-af-alg.json
+#     See templates/daemonset-distribute-profile.yaml
+#
+# Apply:
+#   kubectl apply -f templates/gatekeeper-assign-seccomp.yaml
+#
+# Verify:
+#   kubectl get assign block-af-alg-seccomp
+apiVersion: mutations.gatekeeper.sh/v1
+kind: Assign
+metadata:
+  name: block-af-alg-seccomp
+  annotations:
+    description: >
+      Injects a Localhost seccomp profile that denies AF_ALG socket creation
+      into all pods that do not already declare a seccompProfile, mitigating
+      CVE-2026-31431 (Copy Fail).
+spec:
+  applyTo:
+    - groups: [""]
+      kinds: ["Pod"]
+      versions: ["v1"]
+  match:
+    scope: Namespaced
+    # Exclude control-plane namespaces. Add others as needed.
+    excludedNamespaces:
+      - kube-system
+      - gatekeeper-system
+  location: "spec.securityContext.seccompProfile"
+  parameters:
+    # Only assign if seccompProfile does not already exist on the pod.
+    pathTests:
+      - subPath: "spec.securityContext.seccompProfile"
+        condition: MustNotExist
+    assign:
+      value:
+        type: Localhost
+        localhostProfile: block-af-alg.json

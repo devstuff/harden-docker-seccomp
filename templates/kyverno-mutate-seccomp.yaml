@@ -1,0 +1,56 @@
+---
+# Kyverno MutatingPolicy — Block AF_ALG socket creation (CVE-2026-31431)
+#
+# Mutates all incoming pods cluster-wide to use a Localhost seccomp profile
+# that denies AF_ALG socket creation. Pods that already declare a
+# seccompProfile are left untouched (the matchConditions CEL expression
+# checks for the field's absence before mutating).
+#
+# API version: policies.kyverno.io/v1 (GA in Kyverno 1.17+)
+# Note: The legacy kyverno.io/v1 ClusterPolicy API is deprecated in
+#       Kyverno 1.17 and planned for removal in 1.20 (Oct 2026).
+#       This template uses the current MutatingPolicy API.
+#
+# Prerequisites:
+#   - Kyverno >= 1.17 installed in the cluster
+#   - The profile JSON distributed to every node at:
+#       /var/lib/kubelet/seccomp/block-af-alg.json
+#     See templates/daemonset-distribute-profile.yaml
+#
+# Apply:
+#   kubectl apply -f templates/kyverno-mutate-seccomp.yaml
+#
+# Verify:
+#   kubectl get mutatingpolicy block-af-alg-seccomp
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: block-af-alg-seccomp
+  annotations:
+    policies.kyverno.io/title: Block AF_ALG (CVE-2026-31431)
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >
+      Mutates all pods to use a Localhost seccomp profile that denies AF_ALG
+      socket creation, mitigating CVE-2026-31431 (Copy Fail). Pods that
+      already declare a seccompProfile are not overridden.
+spec:
+  rules:
+    - name: add-af-alg-seccomp-profile
+      match:
+        resources:
+          kinds:
+            - Pod
+      # Only mutate when seccompProfile is not already set.
+      matchConditions:
+        - name: seccomp-profile-absent
+          expression: >
+            !has(object.spec.securityContext) ||
+            !has(object.spec.securityContext.seccompProfile)
+      mutate:
+        patchStrategicMerge:
+          spec:
+            securityContext:
+              seccompProfile:
+                type: Localhost
+                localhostProfile: block-af-alg.json

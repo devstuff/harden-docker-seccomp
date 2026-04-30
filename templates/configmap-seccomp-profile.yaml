@@ -1,0 +1,45 @@
+---
+# ConfigMap — AF_ALG-blocking seccomp profile (CVE-2026-31431)
+#
+# Contains the seccomp profile JSON mounted into the distribute-af-alg-seccomp
+# DaemonSet, which copies it to every node's kubelet seccomp root.
+#
+# The profile allows all syscalls by default and returns EPERM for any
+# socket() call where the first argument (address family) equals 38 (AF_ALG).
+# All other socket families are unaffected.
+#
+# Apply:
+#   kubectl apply -f templates/configmap-seccomp-profile.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: af-alg-seccomp-profile
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: distribute-af-alg-seccomp
+    app.kubernetes.io/component: security
+data:
+  block-af-alg.json: |
+    {
+      "defaultAction": "SCMP_ACT_ALLOW",
+      "architectures": [
+        "SCMP_ARCH_X86_64",
+        "SCMP_ARCH_X86",
+        "SCMP_ARCH_AARCH64",
+        "SCMP_ARCH_ARM"
+      ],
+      "syscalls": [
+        {
+          "names": ["socket"],
+          "action": "SCMP_ACT_ERRNO",
+          "errnoRet": 1,
+          "args": [
+            {
+              "index": 0,
+              "value": 38,
+              "op": "SCMP_CMP_EQ"
+            }
+          ]
+        }
+      ]
+    }
