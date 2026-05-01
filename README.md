@@ -299,3 +299,7 @@ legitimately need `AF_ALG` via a custom allow-list — are left untouched.
 - <https://github.com/moby/profiles> — Canonical Docker default seccomp profile
 - <https://kyverno.io/docs/kyverno-policies/> — Kyverno policy documentation
 - <https://open-policy-agent.github.io/gatekeeper/website/docs/mutation/> — Gatekeeper mutation documentation
+
+## Yeah, Claude did most of the work, here's the chat
+
+<https://gist.github.com/devstuff/3ff3ca0139e2a2da7f1ee5875802f76f>
